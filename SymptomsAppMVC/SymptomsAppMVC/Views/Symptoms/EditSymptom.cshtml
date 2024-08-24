@@ -1,0 +1,80 @@
+﻿@{
+    ViewBag.Title = ViewBag.IsEdit ? "Edit Symptom" : "Add Symptom";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>@ViewBag.Title</h2>
+
+<div class="container">
+    <form id="symptomForm">
+        <input type="hidden" id="SymptomId" name="Id" value="@ViewBag.SymptomId" />
+
+        <div class="form-group">
+            <label for="PainType">Pain Type</label>
+            <select id="PainType" name="PainType" class="form-control">
+                <option value="Headache" @(ViewBag.PainType == "Headache" ? "selected" : "")>Headache</option>
+                <option value="Stomachache" @(ViewBag.PainType == "Stomachache" ? "selected" : "")>Stomachache</option>
+                <option value="BackPain" @(ViewBag.PainType == "BackPain" ? "selected" : "")>Back Pain</option>
+                <option value="AbdominalPain" @(ViewBag.PainType == "AbdominalPain" ? "selected" : "")>Abdominal Pain</option>
+                <option value="ChestPain" @(ViewBag.PainType == "ChestPain" ? "selected" : "")>Chest Pain</option>
+                <option value="MusclePain" @(ViewBag.PainType == "MusclePain" ? "selected" : "")>Muscle Pain</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="SeverityScale">Severity Scale (1-10)</label>
+            <input type="number" id="SeverityScale" name="SeverityScale" class="form-control" value="@ViewBag.SeverityScale" min="1" max="10" required />
+        </div>
+
+        <div class="form-group">
+            <label for="SymptomDurationHours">Symptom Duration (in hours)</label>
+            <input type="number" id="SymptomDurationHours" name="SymptomDurationHours" class="form-control" value="@ViewBag.SymptomDurationHours" step="0.1" required />
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            @if (ViewBag.IsEdit)
+            {
+                <text>Update Symptom</text>
+            }
+            else
+            {
+                <text>Add Symptom</text>
+            }
+        </button>
+
+        <a href="@Url.Action("Index", "Symptoms")" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $("#symptomForm").submit(function (event) {
+                event.preventDefault();
+
+                var symptom = {
+                    Id: $("#SymptomId").val(),
+                    PainType: $("#PainType").val(),
+                    SeverityScale: $("#SeverityScale").val(),
+                    SymptomDurationHours: $("#SymptomDurationHours").val()
+                };
+
+                var url = symptom.Id ? "/api/Symptoms/" + symptom.Id : "/api/Symptoms";
+                var type = symptom.Id ? "PUT" : "POST";
+
+                $.ajax({
+                    url: url,
+                    type: type,
+                    contentType: "application/json",
+                    data: JSON.stringify(symptom),
+                    success: function () {
+                        window.location.href = "@Url.Action("Index", "Symptoms")";
+                    },
+                    error: function (xhr, status, error) {
+                        console.log("Error: " + error);
+                    }
+                });
+            });
+        });
+    </script>
+}
