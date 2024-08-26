@@ -1,7 +1,11 @@
+using SymptomsAppMVC.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddMemoryCache(); // Rejestracja IMemoryCache
+builder.Services.AddSingleton<CacheService>(); // Rejestracja CacheService
 
 var app = builder.Build();
 

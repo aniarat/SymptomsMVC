@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using SymptomsAppMVC.Models;
+using SymptomsAppMVC.Services;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -10,11 +11,16 @@ namespace SymptomsAppMVC.Controllers
     public class SymptomsController : Controller
     {
         HttpClientHandler _clientHandler = new HttpClientHandler();
+        private readonly CacheService _cacheService;
+        private const string CacheAllSymptomsKey = "AllSymptoms";
+        private const string CacheSymptomKeyPrefix = "Symptom_";
+
         Symptom _symptom = new Symptom();
         List <Symptom> _symptomsList = new List <Symptom> ();
 
-        public SymptomsController()
+        public SymptomsController(CacheService cacheService)
         {
+            _cacheService = cacheService;
             _clientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) =>
             { return true; };
         }
@@ -26,17 +32,34 @@ namespace SymptomsAppMVC.Controllers
         [HttpGet]
         public async Task<List<Symptom>> GetAllSymptoms()
         {
-            _symptomsList = new List<Symptom>();
-
-            using (var httpClient = new HttpClient(_clientHandler))
+            var cacheDuration = TimeSpan.FromMinutes(5);
+    List<Symptom> symptomsList = await _cacheService.GetOrSetAsync(CacheAllSymptomsKey, async () =>
+    {
+        using (var httpClient = new HttpClient(_clientHandler))
+        {
+            var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms");
+            if (response.IsSuccessStatusCode)
             {
-                using (var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms"))
-                {
-                    string apiResponse = await response.Content.ReadAsStringAsync();
-                    _symptomsList = JsonConvert.DeserializeObject<List<Symptom>>(apiResponse);
-                }
+                string apiResponse = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<List<Symptom>>(apiResponse);
             }
-            return _symptomsList;
+            return new List<Symptom>(); // return an empty list in case of API failure
+        }
+    }, cacheDuration);
+
+    return View(symptomsList);
+
+            //_symptomsList = new List<Symptom>();
+
+            //using (var httpClient = new HttpClient(_clientHandler))
+            //{
+            //    using (var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms"))
+            //    {
+            //        string apiResponse = await response.Content.ReadAsStringAsync();
+            //        _symptomsList = JsonConvert.DeserializeObject<List<Symptom>>(apiResponse);
+            //    }
+            //}
+            //return _symptomsList;
         }
 
         [HttpGet]
