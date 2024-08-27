@@ -10,11 +10,12 @@ namespace SymptomsAppMVC.Services
         {
             _memoryCache = memoryCache;
         }
-        public async Task<T> GetOrSet<T>(string cacheKey, Func<Task<T>> getData, TimeSpan cacheDuration)
+
+        public async Task<T> GetOrSetAsync<T>(string cacheKey, Func<Task<T>> getData, TimeSpan cacheDuration)
         {
             if (!_memoryCache.TryGetValue(cacheKey, out T cacheEntry))
             {
-                cacheEntry = await getData();  // Używaj await z asynchronicznym wywołaniem
+                cacheEntry = await getData();
 
                 var cacheEntryOptions = new MemoryCacheEntryOptions()
                     .SetAbsoluteExpiration(cacheDuration);

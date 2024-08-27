@@ -32,22 +32,24 @@ namespace SymptomsAppMVC.Controllers
         [HttpGet]
         public async Task<List<Symptom>> GetAllSymptoms()
         {
-            var cacheDuration = TimeSpan.FromMinutes(5);
-    List<Symptom> symptomsList = await _cacheService.GetOrSetAsync(CacheAllSymptomsKey, async () =>
-    {
-        using (var httpClient = new HttpClient(_clientHandler))
-        {
-            var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms");
-            if (response.IsSuccessStatusCode)
+            var cacheDuration = TimeSpan.FromMinutes(1); // Ustawienie czasu życia cache na 5 minut
+            return await _cacheService.GetOrSetAsync(CacheAllSymptomsKey, async () =>
             {
-                string apiResponse = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<List<Symptom>>(apiResponse);
-            }
-            return new List<Symptom>(); // return an empty list in case of API failure
-        }
-    }, cacheDuration);
-
-    return View(symptomsList);
+                using (var httpClient = new HttpClient(_clientHandler))
+                {
+                    var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string apiResponse = await response.Content.ReadAsStringAsync();
+                        return JsonConvert.DeserializeObject<List<Symptom>>(apiResponse);
+                    }
+                    else
+                    {
+                        // W przypadku niepowodzenia, zwróć pustą listę.
+                        return new List<Symptom>();
+                    }
+                }
+            }, cacheDuration);
 
             //_symptomsList = new List<Symptom>();
 
@@ -65,56 +67,97 @@ namespace SymptomsAppMVC.Controllers
         [HttpGet]
         public async Task<Symptom> GetSymptomById(string symptomId)
         {
-            _symptom = new Symptom();
-
-            using (var httpClient = new HttpClient(_clientHandler))
+            var cacheKey = $"{CacheSymptomKeyPrefix}{symptomId}";
+            var cacheDuration = TimeSpan.FromMinutes(10);
+            Symptom symptom = await _cacheService.GetOrSetAsync(cacheKey, async () =>
             {
-                using (var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms" + symptomId))
+                using (var httpClient = new HttpClient(_clientHandler))
                 {
-                    string apiResponse = await response.Content.ReadAsStringAsync();
-                    _symptom = JsonConvert.DeserializeObject<Symptom>(apiResponse);
+                    var response = await httpClient.GetAsync($"http://localhost:5158/api/Symptoms/{symptomId}");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string apiResponse = await response.Content.ReadAsStringAsync();
+                        return JsonConvert.DeserializeObject<Symptom>(apiResponse);
+                    }
+                    return null; // Return null if the API call fails
                 }
-            }
-            return _symptom;
+            }, cacheDuration);
+
+            return symptom; // Return the symptom directly
+
+            //_symptom = new Symptom();
+
+            //using (var httpClient = new HttpClient(_clientHandler))
+            //{
+            //    using (var response = await httpClient.GetAsync("http://localhost:5158/api/Symptoms" + symptomId))
+            //    {
+            //        string apiResponse = await response.Content.ReadAsStringAsync();
+            //        _symptom = JsonConvert.DeserializeObject<Symptom>(apiResponse);
+            //    }
+            //}
+            //return _symptom;
         }
 
         [HttpPost]
         public async Task<Symptom> AddSymptom(Symptom symptom)
         {
-            _symptom = new Symptom();
-
             using (var httpClient = new HttpClient(_clientHandler))
             {
                 StringContent content = new StringContent(JsonConvert.SerializeObject(symptom), Encoding.UTF8, "application/json");
 
                 using (var response = await httpClient.PostAsync("http://localhost:5158/api/Symptoms", content))
                 {
-                    string apiResponse = await response.Content.ReadAsStringAsync();
-                    _symptom = JsonConvert.DeserializeObject<Symptom>(apiResponse);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string apiResponse = await response.Content.ReadAsStringAsync();
+                        _symptom = JsonConvert.DeserializeObject<Symptom>(apiResponse);
+
+                        // Clear the cache for all symptoms after adding a new symptom
+                        _cacheService.Remove(CacheAllSymptomsKey);
+
+                        return _symptom;
+                    }
+                    else
+                    {
+                        // Log error or handle unsuccessful post request accordingly
+                        throw new Exception("Failed to add new symptom");
+                    }
                 }
             }
-            return _symptom;
+            //_symptom = new Symptom();
+
+            //using (var httpClient = new HttpClient(_clientHandler))
+            //{
+            //    StringContent content = new StringContent(JsonConvert.SerializeObject(symptom), Encoding.UTF8, "application/json");
+
+            //    using (var response = await httpClient.PostAsync("http://localhost:5158/api/Symptoms", content))
+            //    {
+            //        string apiResponse = await response.Content.ReadAsStringAsync();
+            //        _symptom = JsonConvert.DeserializeObject<Symptom>(apiResponse);
+            //    }
+            //}
+            //return _symptom;
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Edit(string id)
-        {
-            using (var httpClient = new HttpClient(_clientHandler))
-            {
-                var response = await httpClient.GetAsync($"http://localhost:5158/api/Symptoms/{id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    var symptom = await response.Content.ReadAsAsync<Symptom>();
-                    ViewBag.SymptomId = symptom.Id;
-                    ViewBag.PainType = symptom.PainType;
-                    ViewBag.SeverityScale = symptom.SeverityScale;
-                    ViewBag.SymptomDurationHours = symptom.SymptomDurationHours;
-                    return View("EditSymptom");
-                }
-                return NotFound();
-            }
+        //[HttpPut("{id}")]
+        //public async Task<IActionResult> Edit(string id)
+        //{
+        //    using (var httpClient = new HttpClient(_clientHandler))
+        //    {
+        //        var response = await httpClient.GetAsync($"http://localhost:5158/api/Symptoms/{id}");
+        //        if (response.IsSuccessStatusCode)
+        //        {
+        //            var symptom = await response.Content.ReadAsAsync<Symptom>();
+        //            ViewBag.SymptomId = symptom.Id;
+        //            ViewBag.PainType = symptom.PainType;
+        //            ViewBag.SeverityScale = symptom.SeverityScale;
+        //            ViewBag.SymptomDurationHours = symptom.SymptomDurationHours;
+        //            return View("EditSymptom");
+        //        }
+        //        return NotFound();
+        //    }
                
-        }
+        //}
         //public async Task<IActionResult> EditSymptom(string id, Symptom updatedSymptom)
         //{
         //    // Validate the incoming updatedSymptom object
